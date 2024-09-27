@@ -1,0 +1,130 @@
+function draftEmailsToGCs() {
+ var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+ var dataRange = sheet.getDataRange();
+ var values = dataRange.getValues();
+
+
+ var gcIndex = values[0].indexOf('General Contractor');
+ var gcEmailIndex = values[0].indexOf('GC Email Address');
+ var addressIndex = values[0].indexOf('Address');
+ var amountIndex = values[0].indexOf('Amount');
+ var checkNumberIndex = values[0].indexOf('Check');
+ var payeeIndex = values[0].indexOf('Payee Name');
+ var dateIndex = values[0].indexOf('Created Date');
+
+
+ var gcProjects = {};
+ var emailsDrafted = 0;
+ var projectsIncluded = 0;
+ var checksSent = 0;
+
+
+ for (var i = 1; i < values.length; i++) {
+   var gc = values[i][gcIndex].trim();
+   var gcEmail = values[i][gcEmailIndex].trim();
+   var projectAddress = values[i][addressIndex].trim();
+   var amount = values[i][amountIndex];
+   var checkNumber = values[i][checkNumberIndex];
+   var payee = values[i][payeeIndex].trim();
+   var dateValue = values[i][dateIndex];
+
+
+   // Validate that essential fields are not empty or invalid
+   if (!gc || !gcEmail || !projectAddress || !amount || !checkNumber || !payee || !dateValue) {
+     continue; // Skip rows with missing data
+   }
+
+
+   // Convert date to a valid format (skip if the date is invalid)
+   var date = new Date(dateValue);
+   if (isNaN(date)) {
+     continue; // Skip if date is invalid
+   }
+   var formattedDate = date.toLocaleDateString(); // Format to show only the date
+
+
+   var gcKey = gc;
+
+
+   if (!gcProjects[gcKey]) {
+     gcProjects[gcKey] = {
+       gcEmail: gcEmail,
+       projects: {}
+     };
+   }
+
+
+   if (!gcProjects[gcKey].projects[projectAddress]) {
+     gcProjects[gcKey].projects[projectAddress] = [];
+     projectsIncluded++;
+   }
+
+
+   gcProjects[gcKey].projects[projectAddress].push({
+     amount: amount,
+     checkNumber: checkNumber,
+     payee: payee,
+     date: formattedDate
+   });
+
+
+   checksSent++;
+ }
+
+
+ for (var gcKey in gcProjects) {
+   var gcInfo = gcProjects[gcKey];
+   var emailBody = "Hello,\n\nThe following project(s) have the following outstanding check(s):\n\n";
+
+
+   for (var projectAddress in gcInfo.projects) {
+     var checks = gcInfo.projects[projectAddress];
+     emailBody += projectAddress + "\n";
+
+
+     checks.forEach(function(check) {
+       emailBody += "    $" + pad(check.amount, 8) + "     Check #" + pad(check.checkNumber, 8) + "     Payee: " + pad(check.payee, 25) + "     " + check.date + "\n";
+     });
+
+
+     emailBody += "\n";
+   }
+
+
+   emailBody += "Any check that is over 3 years old will be escheated to the state 30 days from the date of this email. ";
+   emailBody += 'How would you like us to handle these checks? Please let us know if you have any questions.';
+  
+   var signature =
+   '\n\nThanks and have a great day!\n\n' +
+   'LTGC Construction Disbursing Team\n' +
+   'Land Title Guarantee Company\n' +
+   'draws@ltgc.com\n' +
+   '303-850-4163\n' +
+   'Greenwood Village, CO 80111\n' +
+   '5975 Greenwood Plaza Blvd. #125\n' +
+   'www.ltgc.com';
+  
+   emailBody += signature;
+
+
+   Logger.log("GC: " + gcInfo.gcEmail + "\n" + emailBody);
+
+
+   GmailApp.createDraft(gcInfo.gcEmail, "Outstanding Checks for Land Title Projects", emailBody);
+   emailsDrafted++;
+ }
+
+
+ var notification = "Emails Drafted: " + emailsDrafted + "\nProjects Included: " + projectsIncluded + "\nChecks: " + checksSent;
+ Logger.log(notification);
+ SpreadsheetApp.getUi().alert('Draft Email Notification', notification, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+
+function pad(str, length) {
+ var paddedStr = str.toString();
+ while (paddedStr.length < length) {
+   paddedStr += " ";
+ }
+ return paddedStr;
+}
