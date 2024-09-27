@@ -1,0 +1,122 @@
+var table = "<table border='1' style='border-collapse: collapse;'>" +
+  "<tr>" +
+  "<td style='padding: 8px; border: 1px solid #ddd;'><a href='https://docs.google.com/document/d/18k5ln_VYK0iBFA5ObyhkRiRD3rzjci1433n0pfoOn5A/edit?usp=sharing'>Dates & Hours 2023-2024</a></td>" +
+  "<td style='padding: 8px; border: 1px solid #ddd;'><a href='https://www.signupgenius.com/go/4090c48aaaa22ab9-jeffco#/'>Volunteer Link</a></td>" +
+  "<td style='padding: 8px; border: 1px solid #ddd;'><a href='https://jeffcoschoolsfoundation.networkforgood.com/projects/102317-support-jeffco-schools-foundation'>Donation Link</a></td>" +
+  "</tr>" +
+  "<tr>" +
+  "<td style='padding: 8px; border: 1px solid #ddd;'><a href='https://drive.google.com/file/d/1PNkBpju8Ltk4uToK7oW0Fn1yc3S4hKQS/view?usp=sharing'>Map to 809 Quail St</a></td>" +
+  "<td style='padding: 8px; border: 1px solid #ddd;'><a href='https://docs.google.com/document/d/1ryWbXKWy3VOzPAOGxoFd5DFKfF-wli76YbuiqIo0Yts/edit?usp=sharing'>Frequently Asked Questions</a></td>" +
+  "<td style='padding: 8px; border: 1px solid #ddd;'><a href='https://sites.google.com/jeffcoschools.us/jeffcotheatre/district?authuser=0'>Jeffco Theatre Calendar</a></td>" +
+  "</tr>" +
+  "</table>";
+var signature = "Thank you, <br><br> Christy Izmirian, Manager <br> Jeffco Costume Connection<br> 303-982-7869 <br>" + table;
+
+function onOpen() { // This function creates the menu.
+  var ui = SpreadsheetApp.getUi();
+  var checkoutMenu = ui.createMenu('Checkout Emails');
+  checkoutMenu.addItem('Draft Checkout emails', 'draftCheckoutEmails'); // This assigns the draftEmails function to run when the "Draft emails" button is clicked
+  checkoutMenu.addToUi();
+
+  var lateMenu = ui.createMenu('Late Emails');
+  lateMenu.addItem('Draft Late emails', 'draftLateEmails'); // This assigns the draftEmails function to run when the "Draft emails" button is clicked
+  lateMenu.addToUi();
+}
+
+function draftCheckoutEmails() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet(); // This tells the program what sheet you are currently on
+  var data = sheet.getDataRange().getValues(); // This pulls that data from the spreadsheet
+  var draftsCreated = 0; // Initialize a counter for drafts created
+
+  for (var i = 1; i < data.length; i++) { // This is a loop - for every row in the spreadsheet, it will perform this set of instructions
+    var row = data[i]; // This gets the current row
+    var emailSent = row[1]; // This checks if the email has been marked as sent for this row
+    
+    var checkoutDateStr = row[0];
+    if (checkoutDateStr == null || checkoutDateStr === "") { // This breaks the loop if the column doesn't have a checkout date
+      break;
+    }
+
+    if (emailSent === false) { // If the email has not yet been sent, it will perform the following instructions. Otherwise, it will start at the top of the loop
+      // Convert the checkoutDate string to a JavaScript Date object
+      var checkoutDate = new Date(checkoutDateStr);
+
+      // Format the dates to 'MM/dd/yyyy' format
+      var formattedCheckoutDate = Utilities.formatDate(checkoutDate, "GMT", "MM/dd/yyyy");
+
+      var returnDateStr = row[8];
+      var itemsCheckedOut = row[9];
+      var email = row[4];
+      var name = row[3];
+
+      // Convert the returnDate string to a JavaScript Date object
+      var returnDate = new Date(returnDateStr);
+
+      // Format the returnDate to 'MM/dd/yyyy' format
+      var formattedReturnDate = Utilities.formatDate(returnDate, "GMT", "MM/dd/yyyy");
+      
+      var subject = "Jeffco Costume Connection Items Checked Out " + formattedCheckoutDate;
+       var body = "Hello " + name + ",<br><br>" +
+                 "Thank you so much for visiting the Jeffco Costume Connection! Per our conversation, I will look forward to your return on or before " + formattedReturnDate + ". Please note that items must be returned clean. <br><br>" +
+                 "Items: " + itemsCheckedOut + "<br><br>";
+      body+=signature;
+      
+     GmailApp.createDraft(email, subject, "", { htmlBody: body }); // sends an email
+      draftsCreated++;
+    }
+  }
+  var alertMessage = "Drafts have been created for " + draftsCreated + " emails.";
+  Browser.msgBox("Draft Email Confirmation", alertMessage, Browser.Buttons.OK);
+}
+
+function draftLateEmails() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  var draftsCreated = 0;
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    
+    var returnDateStr = row[8];
+    var checkoutDateStr = row[0];
+    //The commented line below was used to break the loop when there were more checkboxes than valid lines. It's a shitty way of doing it, fix it later. Or don't, idc lol
+    //if (returnDateStr == null || returnDateStr === "" || checkoutDateStr == null || checkoutDateStr === "") {break;}
+
+    // Convert the returnDate and checkoutDate strings to JavaScript Date objects
+    var returnDate = new Date(returnDateStr);
+    var checkoutDate = new Date(checkoutDateStr);
+    var itemReturned = row[2];
+
+    // Calculate the difference in days between the return date and today
+    var today = new Date();
+    var timeDifference = today.getTime() - returnDate.getTime();
+    var daysDifference = timeDifference / (1000 * 3600 * 24);
+
+    // Checks if the items are more than 21 days overdue
+    if ( daysDifference >= 21 && itemReturned !== true) {
+      // Format the dates to 'MM/dd/yyyy' format
+      var formattedCheckoutDate = Utilities.formatDate(checkoutDate, "GMT", "MM/dd/yyyy");
+      var formattedReturnDate = Utilities.formatDate(returnDate, "GMT", "MM/dd/yyyy");
+
+      var name = row[3];
+      var itemsCheckedOut = row[9];
+      var email = row[4];
+
+      var subject = "Overdue Items Reminder for Jeffco Costume Connection";
+      var body =  "Dear " + name + ",<br><br>" +
+                 "According to my records, the items you checked out on " + formattedCheckoutDate + " were due back on " + formattedReturnDate + ".<br><br>" +
+                 "Items: " + itemsCheckedOut + "<br><br>" //+
+                 "If I've made an error, please let me know and I'll fix my records. If you still have these items, please return them as soon as possible so others can use them.<br><br>" +
+                 "For smaller checkouts, you may use our after hours return box, just to the left of the door.<br><br>" //+
+                 
+                 //"Our last day open for the school year is Wednesday, May 22. We will be open 2-8pm in order to accommodate the 165 people who need to return items. Please be patient as we process these returns. If you plan to use the After Hours Returns box outside the front door, please BAG your items and WRITE your name somewhere on or inside the bag so I know who to check off. It is a small box, so it only works for small checkouts - just a few items.<br><br>";
+      
+      
+      body+=signature;
+      GmailApp.createDraft(email, subject, "", { htmlBody: body });;
+      draftsCreated++;
+    }
+  }
+  var alertMessage = "Drafts have been created for " + draftsCreated + " late emails.";
+  Browser.msgBox("Late Email Confirmation", alertMessage, Browser.Buttons.OK);
+}
