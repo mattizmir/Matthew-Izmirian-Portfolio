@@ -1,0 +1,104 @@
+function onOpen() {
+ var ui = SpreadsheetApp.getUi();
+ ui.createMenu('Custom Actions')
+   .addItem('SEND W9 Request Emails', 'sendW9RequestEmails')
+   .addToUi();
+}
+
+
+function sendW9RequestEmails() {
+ var ss = SpreadsheetApp.getActiveSpreadsheet();
+ var sheet = ss.getSheetByName('Current');
+
+
+ var data = sheet.getDataRange().getValues();
+ var headers = data[0];
+ var gcEmailIndex = headers.indexOf('GC Email');
+ var vendorIndex = headers.indexOf('Vendor');
+ var requestedIndex = headers.indexOf('Requested');
+ var addressIndex = headers.indexOf('Address');
+
+
+ // Create an object to store vendors for each GC by address
+ var vendorsByGC = {};
+ var emailsSentCount = 0;
+ var w9sRequestedCount = 0;
+
+
+ // Iterate through the data and organize vendors by GC and address
+ for (var i = 1; i < data.length; i++) {
+   var gcEmail = data[i][gcEmailIndex];
+   var vendor = data[i][vendorIndex];
+   var requested = data[i][requestedIndex];
+   var address = data[i][addressIndex];
+
+
+   if (gcEmail && vendor && address && !requested) {
+     if (!vendorsByGC[gcEmail]) {
+       vendorsByGC[gcEmail] = {};
+     }
+     if (!vendorsByGC[gcEmail][address]) {
+       vendorsByGC[gcEmail][address] = [vendor];
+     } else {
+       vendorsByGC[gcEmail][address].push(vendor);
+     }
+
+
+     // Increment the count of W9s requested
+     w9sRequestedCount++;
+
+
+     // Check the "Requested" checkbox
+     //sheet.getRange(i + 1, requestedIndex + 1).setValue(true);
+   }
+ }
+
+
+ // Signature
+ var signature =
+   '\nThanks and have a great day!\n\n' +
+   'LTGC Construction Disbursing Team\n' +
+   'Land Title Guarantee Company\n' +
+   'draws@ltgc.com\n' +
+   '303-850-4163\n' +
+   'Greenwood Village, CO 80111\n' +
+   '5975 Greenwood Plaza Blvd. #125\n' +
+   'www.ltgc.com';
+
+
+ // Iterate through unique GC emails and draft emails
+ Object.keys(vendorsByGC).forEach(function (gcEmail) {
+   var subject = 'W9 Request';
+   var body = 'Hello,\n\n' +
+     'The IRS requires we collect W9s for the vendor(s) on the following project(s):\n\n';
+
+
+   Object.keys(vendorsByGC[gcEmail]).forEach(function (address) {
+     body += address + '\n';
+     vendorsByGC[gcEmail][address].forEach(function (vendor) {
+       body += '  ' + vendor + '\n';
+     });
+     body += '\n';
+   });
+
+
+   body += 'Please send us these W9s at your earliest convenience. If you have any questions, you can reach us at 303-850-4163, draws@ltgc.com, or you may contact the processor who typically works on your draws.\n\n' + signature;
+
+
+   // Draft the email
+   MailApp.sendEmail(gcEmail, subject, body);
+   //GmailApp.createDraft(gcEmail, subject, body); // Currently drafts the email instead of sending
+
+
+   // Increment the count of emails sent
+   emailsSentCount++;
+
+
+   Logger.log( "Email: " + gcEmail + "\n" + body+ "\n Email count:"+emailsSentCount);
+ });
+
+
+ // Display log message with counts
+ var promptMessage = 'Emails drafted: ' + emailsSentCount + '\nFor W9s: ' + w9sRequestedCount;
+ SpreadsheetApp.getUi().alert('W9 Request Status', promptMessage, SpreadsheetApp.getUi().ButtonSet.OK);
+}
