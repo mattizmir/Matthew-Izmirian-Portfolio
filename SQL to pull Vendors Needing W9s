@@ -1,0 +1,15 @@
+SELECT loan_number, vendor_code, vendor_name, SUM(chk_dpst_value) AS total_paid
+FROM Financial LEFT OUTER JOIN Contacts
+ON vendor_code = contact_code
+WHERE (Contact_Type IS NULL OR Contact_Type ='Vendor')
+ AND Company IS NOT NULL
+ AND tax_id_number IS NULL
+ AND (type_of_business_ownership != 'Corporation' OR type_of_business_ownership IS NULL) 
+ AND (status_contact !='Inactive' OR status_contact IS NULL)
+ AND YEAR(chk_dpst_date) = 2024
+GROUP BY 
+    loan_number, 
+    vendor_code, 
+    vendor_name
+HAVING 
+    SUM(chk_dpst_value) >= 600
